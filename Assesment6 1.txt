@@ -1,0 +1,31 @@
+xquery version "1.0-ml";
+
+declare variable $productId := "productID";
+declare variable $productDetails := "productDetails";
+
+let $ids := cts:uris((), (), cts:and-query((
+ cts:collection-query($productId)
+)))
+ 
+let $details := cts:uris((), (), cts:and-query((
+ cts:collection-query($productDetails)
+)))
+
+let $distinctPoIds := distinct-values(
+  for $id in $ids
+  let $doc := fn:doc($id)
+  return $doc//order/product/purchage/id
+)
+
+for $PoId in $distinctPoIds
+let $result :=  
+    cts:uris((),(),cts:and-query((
+    cts:collection-query($productDetails),
+    cts:path-range-query("/document/details/product/purchage/id", "=", $PoId)
+    ))) ! element uri{.}
+  
+return
+<group-by-id>
+  <order>{$PoId}</order>
+  <result>{$result}</result>
+</group-by-id>
