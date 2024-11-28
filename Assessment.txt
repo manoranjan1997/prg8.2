@@ -1,0 +1,147 @@
+Create an XML document with URI "/XML/Library/Book" in the Documents database.
+
+
+xquery version "1.0-ml";
+xdmp:document-insert("/XML/Library/Book",
+<library>
+<book>
+<title>Book 1</title>
+<author>Author 1</author>
+<year>2022</year>
+</book>
+<book>
+<title>Book 1</title>
+<author>Author 1</author>
+<year>2020</year>
+</book>
+<book>
+<title>Book 2</title>
+<author>Author 2</author>
+<year>2023</year>
+</book>
+</library>)
+
+
+Rename document "/XML/Library/Book" to "/UCBOS/Library/Book". 
+
+xquery version "1.0-ml";
+let $old-uri := '/XML/Library/Book'
+let $new-uri := '/UCBOS/Library/Book'
+let $lock := ($old-uri, $new-uri) ! xdmp:lock-for-update(.)
+let $prop-ns := fn:namespace-uri-from-QName(xs:QName("prop:properties"))
+let $properties :=
+  xdmp:document-properties($old-uri)/node()/node()
+    [ fn:namespace-uri(.) ne $prop-ns ]
+return (
+  xdmp:document-insert(
+    $new-uri,
+    fn:doc($old-uri),
+    xdmp:document-get-permissions($old-uri),
+    xdmp:document-get-collections($old-uri)
+  ),
+  xdmp:document-delete($old-uri),
+  xdmp:document-set-properties($new-uri, $properties)
+)
+
+Add the above document to the collections "Book" and "UCBOS".
+
+xquery version "1.0-ml";
+xdmp:document-add-collections("/UCBOS/Library/Book",("Book","UCBOS"))
+
+Delete the books in document which published before 2022. 
+
+
+xquery version "1.0-ml";
+let $booksToDelete := (
+  for $book in doc("/UCBOS/Library/Book")//book
+  where xs:integer(substring($book/year, 1, 4)) < 2022
+  return $book
+)
+for $book in $booksToDelete
+return xdmp:node-delete($book)
+
+
+Add a new Book to the document Title: Book 6 Author: Author101 Year: 2023 
+
+xquery version "1.0-ml";
+let $doc := doc("/UCBOS/Library/Book")
+let $newBook := 
+  <book>
+    <title>Book 6</title>
+    <author>Author101</author>
+    <year>2023</year>
+    <published>2023-01-01</published>
+  </book>
+return
+(
+  xdmp:node-insert-child(doc("/UCBOS/Library/Book")/library, $newBook)
+)
+
+
+Add a new element Price for all books (give random values) 
+
+xquery version "1.0-ml";
+let $doc := doc("/UCBOS/Library/Book")
+let $books := $doc//library/book
+for $book in $books
+return
+  xdmp:node-insert-child($book,
+    <price>{xdmp:random(100)}</price>
+  )
+
+
+Update Author Names with a smaller case.
+
+xquery version "1.0-ml";
+let $doc := doc("/UCBOS/Library/Book")
+let $books := $doc//library/book
+for $book in $books
+let $author := $book/author
+return xdmp:node-replace($author, <author>{fn:lower-case($author/text())}</author> )
+
+
+Create 100 documents with each having at least 10 books.
+URI Format - /UCBOS/Library/{$count}.
+
+xquery version "1.0-ml";
+declare variable $uris as xs:string* :=
+  for $i in 1 to 100 return fn:concat("/UCBOS/Library/", $i);
+for $uri in $uris
+let $books := for $j in 1 to 10
+              return
+                <book>
+                  <title>{fn:concat("Book ", $j)}</title>
+                  <author>{fn:concat("Author ", $j)}</author>
+                  <year>{2022 - $j}</year>
+                </book>
+return xdmp:document-insert(
+  $uri,
+  <document>
+    <URI>{$uri}</URI>
+    <books>{$books}</books>
+  </document>
+)
+
+Write a FLWOR query to return books grouped by year.
+
+xquery version "1.0-ml";
+for $year in distinct-values(doc()//book/year)
+let $books := doc()//book[year = $year]
+return 
+  <year-group>
+    <year>{ $year }</year>
+    <books>{ $books }</books>
+  </year-group>
+
+Write a FLWOR query to return books grouped by year and author.
+
+xquery version "1.0-ml";
+for $year in distinct-values(doc()//book/year)
+for $author in distinct-values(doc()//book[year = $year]/author)
+let $books := doc()//book[year = $year and author = $author]
+return 
+  <year-author-group>
+    <year>{ $year }</year>
+    <author>{ $author }</author>
+    <books>{ $books }</books>
+  </year-author-group>
