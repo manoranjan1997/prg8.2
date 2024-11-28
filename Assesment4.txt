@@ -1,0 +1,54 @@
+xquery version "1.0-ml";
+
+declare variable $SpecialtyRetailerItem := 'Specialty Retailer Item';
+declare variable $EnterpriseInventory:='Enterprise Inventory';
+let $uris := cts:uris((), (),cts:and-query((
+cts:collection-query($SpecialtyRetailerItem)
+)))
+let $epis:=cts:uris((),(),cts:and-query((
+cts:collection-query($EnterpriseInventory)
+)))
+
+for $uri in $uris
+let $doc := fn:doc($uri)
+let $GlobalMasterItemId:= $doc/root/SpecialtyRetailerItem/ItemUPC
+let $ItemNumber:=$doc/root/SpecialtyRetailerItem/ItemNumber
+let $AlternateItemNumber:=$doc/root/SpecialtyRetailerItem/AlternateItemNo
+
+let $Qty :=
+    if (exists($doc//AlternateItemNo)) 
+    then 
+     sum(
+            for $epi in $epis
+            let $doc1 := fn:doc($epi)
+            let $Quantity := $doc1/Inventory/EnterpriseInventory/Quantity
+            let $ItemNumber1 := $doc1/Inventory/EnterpriseInventory/ItemNumber 
+           where (($ItemNumber eq $ItemNumber1) or ($ItemNumber1 eq $AlternateItemNumber))
+             return $Quantity
+        )
+        
+    else
+        sum(
+            for $epi in $epis
+            let $doc1 := fn:doc($epi)
+            let $Quantity := $doc1/Inventory/EnterpriseInventory/Quantity
+            let $ItemNumber1 := $doc1/Inventory/EnterpriseInventory/ItemNumber
+            where ($ItemNumber eq $ItemNumber1)
+            return $Quantity
+        )
+
+let $Status:=
+ distinct-values
+ ( 
+ for $epi in $epis
+  let $doc1:=fn:doc($epi)
+  return $doc1/Inventory/EnterpriseInventory/AllocationStatus
+  )
+  return
+<result>
+  <GlobalMasterItemId>{$GlobalMasterItemId}</GlobalMasterItemId>
+  <ItemNumber>{$ItemNumber}</ItemNumber>
+  <AlternateItemNo>{$AlternateItemNumber}</AlternateItemNo>
+  <Quantity>{$Qty}</Quantity>
+  <Status>{$Status}</Status>
+</result>
