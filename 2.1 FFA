@@ -1,0 +1,45 @@
+xquery version "1.0-ml";
+
+declare function local:generate-intervals(
+    $start-datetime as xs:dateTime,
+    $end-datetime as xs:dateTime,
+    $interval-duration as xs:integer,
+    $unit as xs:string
+) as element(IntervalDetails) {
+    if ($start-datetime eq $end-datetime) then
+        ()
+    else
+        let $duration := 
+            if ($unit eq 'M') 
+            then xs:dayTimeDuration(concat('PT', $interval-duration, 'M'))
+            else if ($unit eq 'S')
+            then xs:dayTimeDuration(concat('PT', $interval-duration, 'S'))
+            else if ($unit eq 'D')
+            then xs:dayTimeDuration(concat('P', $interval-duration, 'D'))
+            else if ($unit eq 'MO')
+            then xs:yearMonthDuration(concat('P', $interval-duration, 'M'))
+            else if ($unit eq 'Y')
+            then xs:yearMonthDuration(concat('P', $interval-duration, 'Y'))
+            else ()
+        let $intervals := 
+            for $i in 0 to fn:floor(($end-datetime - $start-datetime) div $duration)
+            let $interval-start := $start-datetime + ($i * $duration)+ xs:dayTimeDuration(concat('PT', $i, 'S'))
+            let $interval-end := 
+                if ($interval-start + $duration gt $end-datetime) 
+                then $end-datetime 
+                else $interval-start + $duration
+            where $interval-start lt $end-datetime
+            return
+                <interval attr="{ $i + 1 }">
+                    <startdatetime>{ $interval-start }</startdatetime>
+                    <enddatetime>{ $interval-end }</enddatetime>
+                </interval>
+        return
+            <IntervalDetails>{ $intervals }</IntervalDetails>
+};
+
+let $start := xs:dateTime("2024-11-27T09:30:00")
+let $end := xs:dateTime("2024-12-28T11:00:00")
+let $interval-duration := 40
+let $unit := 'M' (: Use 'S' for second intervals, 'M' for minute intervals, 'D' for day intervals, 'MO' for month intervals, 'Y' for year intervals :)
+return local:generate-intervals($start, $end, $interval-duration, $unit)
